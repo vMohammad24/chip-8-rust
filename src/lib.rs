@@ -2,13 +2,14 @@ use std::fs;
 use crate::fonts::{FONT_SET, FONT_START_ADDR};
 
 mod fonts;
+pub mod display;
 
 const START_ADDRESS: u16 = 0x200;
 
 #[derive(Debug)]
 pub struct Chip8 {
     memory: [u8; 4096],
-    display: [bool; 64 * 32],
+    pub display: [u32; display::WIDTH * display::HEIGHT],
     pc: u16,
     index: u16,
     stack: Vec<u16>,
@@ -28,7 +29,7 @@ impl Chip8 {
 
         Chip8 {
             memory,
-            display: [false; 64 * 32],
+            display: [0x000000; 64 * 32],
             pc: START_ADDRESS,
             index: 0,
             stack: vec![],
@@ -45,4 +46,19 @@ impl Chip8 {
             self.memory[(START_ADDRESS as usize) + i] = *byte;
         }
     }
+
+    pub fn decrease_timers(&mut self) {
+        if self.sound_timer > 0 {
+            self.sound_timer -= 1;
+            //TODO: beep?
+        }
+
+        if self.delay_timer > 0 {
+            self.delay_timer -= 1;
+        }
+    }
+}
+
+enum OpCode {
+
 }
