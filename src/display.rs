@@ -10,15 +10,15 @@ pub fn init_window() -> Window {
 
     let mut window = Window::new(
         "Test - ESC to exit",
-        WIDTH,
-        HEIGHT,
+        WIDTH as usize,
+        HEIGHT as usize,
         window_opt,
     )
     .unwrap_or_else(|e| {
         panic!("{}", e);
     });
 
-    window.set_target_fps(60);
+    window.set_target_fps(0);
 
     window
 }
