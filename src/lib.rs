@@ -13,6 +13,7 @@ pub struct Chip8 {
     pc: u16,
     index: u16,
     stack: Vec<u16>,
+
     pub delay_timer: u8,
     sound_timer: u8,
 
@@ -52,6 +53,7 @@ impl Chip8 {
         if self.sound_timer > 0 {
             self.sound_timer -= 1;
             //TODO: beep?
+            println!("!!BEEP!!")
         }
 
         if self.delay_timer > 0 {
@@ -107,6 +109,12 @@ impl Chip8 {
                     self.pc += 2;
                 }
             }
+            (9, x, y, 0) => {
+                if self.registers[x as usize] != self.registers[y as usize] {
+                    self.pc += 2;
+                }
+            }
+
             (6, v_a, _, _) => {
                 self.registers[v_a as usize] = (op & 0xFF) as u8;
             }
@@ -114,9 +122,68 @@ impl Chip8 {
                 (self.registers[v_a as usize], _) =
                     self.registers[v_a as usize].overflowing_add((op & 0xFF) as u8);
             }
+
+            // Math Stuff
+            (8, x, y, inst) => match inst {
+                0 => {
+                    self.registers[x as usize] = self.registers[y as usize];
+                }
+                1 => {
+                    self.registers[x as usize] |= self.registers[y as usize];
+                }
+                2 => {
+                    self.registers[x as usize] &= self.registers[y as usize];
+                }
+                3 => {
+                    self.registers[x as usize] ^= self.registers[y as usize];
+                }
+                4 => {
+                    let overflow;
+                    (self.registers[x as usize], overflow) =
+                        self.registers[x as usize].overflowing_add(self.registers[y as usize]);
+
+                    self.registers[0xFusize] = if overflow { 0x1 } else { 0x0 };
+                }
+                // subtract
+                5 | 7 => {
+                    let overflow;
+                    if inst == 5 {
+                        (self.registers[x as usize], overflow) =
+                            self.registers[x as usize].overflowing_sub(self.registers[y as usize]);
+                    } else {
+                        (self.registers[x as usize], overflow) =
+                            self.registers[y as usize].overflowing_sub(self.registers[x as usize]);
+                    }
+
+                    self.registers[0xFusize] = if overflow { 0x0 } else { 0x1 };
+                }
+                // shift
+                6 | 0xE => {
+                    self.registers[x as usize] = self.registers[y as usize]; // TODO: configurable if this happens
+
+                    if inst == 6 {
+                        self.registers[0xF] = self.registers[x as usize] & 0x01;
+                        self.registers[x as usize] >>= 1;
+                    } else {
+                        self.registers[0xF] = (self.registers[x as usize] >> 7) & 0x01;
+                        self.registers[x as usize] <<= 1;
+                    }
+                }
+                _ => {}
+            },
             (0xA, _, _, _) => {
                 let val = op & 0xFFF;
                 self.index = val;
+            }
+            (0xB, _, _, _) => {
+                let addr = op & 0xFFF;
+                self.pc = addr + *self.registers.first().unwrap() as u16
+            }
+            (0xC, x, _, _) => {
+                let value = (op & 0xFF) as u8;
+
+                let rand: u8 = rand::random();
+                self.registers[x as usize] = rand & value;
             }
             (0xD, x, y, n) => {
                 let x = self.registers[x as usize] % display::WIDTH as u8;
@@ -141,7 +208,38 @@ impl Chip8 {
                     }
                 }
             }
-            (_, _, _, _) => panic!("Unimplemented opcode: {:x}", op),
+
+            // Key handling
+            (0xE, x, 9, 0xE) => {
+                let _key = self.registers[x as usize];
+                //TODO: self.pc += 2 if key is pressed
+            }
+            (0xE, x, 0xA, 0x1) => {
+                let _key = self.registers[x as usize];
+                //TODO: don't skip if key is pressed
+                self.pc += 2;
+            }
+            // timers
+            (0xF, x, 0x0 , 0x7) => {
+                self.registers[x as usize] = self.delay_timer;
+            },
+            (0xF, x, 0x1, 0x5 | 0x8) => {
+                let value = self.registers[x as usize];
+
+                if (op & 0xF) == 0x5 {
+                    self.delay_timer = value;
+                } else {
+                    self.sound_timer = value;
+                }
+            }
+
+            (0xF, x, 0x1, 0xE) => {
+                self.index += self.registers[x as usize] as u16;
+            }
+
+            (_, _, _, _) => {
+                // panic!("Unimplemented opcode: {:x}", op)
+            }
         }
     }
 }

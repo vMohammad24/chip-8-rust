@@ -9,7 +9,7 @@ use chip_8::Chip8;
 
 fn main() {
     let mut c = Chip8::default();
-    c.load_rom("roms/Chip8 Picture.ch8");
+    c.load_rom("roms/test_opcode.ch8");
 
     let c = Arc::new(Mutex::new(c));
     let mut window = chip_8::display::init_window();
