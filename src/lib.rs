@@ -70,16 +70,25 @@ impl Chip8 {
         let digit4 = op & 0x000F;
 
         match (digit1, digit2, digit3, digit4) {
-            (0,0,0xE,0) => {
-                self.display = [0x000000; 64 * 32]
-            },
+            (0, 0, 0xE, 0) => self.display = [0x000000; 64 * 32],
 
+            // return from routine
+            (0, 0, 0xE, 0xE) => {
+                let addr = self.stack.pop().expect("Stack should contain address");
+                self.pc = addr;
+            }
             // Jump
             (1, _, _, _) => {
                 let addr = op & 0xFFF;
                 self.pc = addr;
-            },
+            }
+            // Subroutines
+            (2, _, _, _) => {
+                let addr = op & 0xFFF;
+                self.stack.push(self.pc);
 
+                self.pc = addr;
+            }
             // Skip Conditionally
             (3, v_a, _, _) => {
                 let value = (op & 0xFF) as u8;
@@ -92,20 +101,24 @@ impl Chip8 {
                 if self.registers[v_a as usize] != value {
                     self.pc += 2;
                 }
-
             }
-
+            (5, x, y, 0) => {
+                if self.registers[x as usize] == self.registers[y as usize] {
+                    self.pc += 2;
+                }
+            }
             (6, v_a, _, _) => {
                 self.registers[v_a as usize] = (op & 0xFF) as u8;
-            },
+            }
             (7, v_a, _, _) => {
-                self.registers[v_a as usize] += (op & 0xFF) as u8;
-            },
+                (self.registers[v_a as usize], _) =
+                    self.registers[v_a as usize].overflowing_add((op & 0xFF) as u8);
+            }
             (0xA, _, _, _) => {
                 let val = op & 0xFFF;
                 self.index = val;
-            },
-            (0xD, x,y, n) => {
+            }
+            (0xD, x, y, n) => {
                 let x = self.registers[x as usize] % display::WIDTH as u8;
                 let y = self.registers[y as usize] % display::HEIGHT as u8;
 
@@ -114,7 +127,8 @@ impl Chip8 {
 
                     for i in 0..8 {
                         let sprite_bit = sprite_data & (0x80 >> i);
-                        let idx = ((y as usize + row as usize) * display::WIDTH) + (x as usize + i as usize);
+                        let idx = ((y as usize + row as usize) * display::WIDTH)
+                            + (x as usize + i as usize);
                         let display_bit = self.display[idx];
 
                         if display_bit == 0xFFFFFF && sprite_bit != 0 {
@@ -126,7 +140,6 @@ impl Chip8 {
                         }
                     }
                 }
-
             }
             (_, _, _, _) => panic!("Unimplemented opcode: {:x}", op),
         }
