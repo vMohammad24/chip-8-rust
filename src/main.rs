@@ -4,12 +4,13 @@
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
-use minifb::Key;
-use chip_8::Chip8;
+use minifb::{Key};
+use chip_8::cpu::Chip8;
+use chip_8::keys::get_keypad;
 
 fn main() {
     let mut c = Chip8::default();
-    c.load_rom("roms/test_opcode.ch8");
+    c.load_rom("roms/tetris.ch8");
 
     let c = Arc::new(Mutex::new(c));
     let mut window = chip_8::display::init_window();
@@ -42,9 +43,12 @@ fn main() {
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
         let display = {
-            let c = c.lock().expect("Threads should not lock up");
+            let mut c = c.lock().expect("Threads should not lock up");
+            c.keypad = get_keypad(&window);
+
             c.display
         };
+
         window
             .update_with_buffer(&display, chip_8::display::WIDTH, chip_8::display::HEIGHT)
             .unwrap();
