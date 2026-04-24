@@ -185,6 +185,7 @@ impl Chip8 {
                 let rand: u8 = rand::random();
                 self.registers[x as usize] = rand & value;
             }
+
             (0xD, x, y, n) => {
                 let x = self.registers[x as usize] % display::WIDTH as u8;
                 let y = self.registers[y as usize] % display::HEIGHT as u8;
@@ -236,9 +237,39 @@ impl Chip8 {
             (0xF, x, 0x1, 0xE) => {
                 self.index += self.registers[x as usize] as u16;
             }
+            (0xF, _x, 0x0, 0xA) => {
+                //TODO: put pressed key in self.registers[x as usize], and stop pressing when scipped
+                self.pc -= 2;
+            }
+            (0xF, x, 0x2, 0x9) => {
+                self.index = FONT_START_ADDR + (x * 5)
+            }
+
+            (0xF, x, 0x3, 0x3) => {
+                let value = self.registers[x as usize];
+                let i = self.index as usize;
+
+                self.memory[i] = value / 100;
+                self.memory[i + 1] = (value / 10) % 10;
+                self.memory[i + 2] = value % 10;
+            }
+
+            (0xF, x, 0x5, 0x5) => {
+                //TODO: toggle to increment i, for quirk behavior
+                for i in 0..=x {
+                    self.memory[(self.index + i) as usize] = self.registers[i as usize]
+                }
+            }
+
+            (0xF, x, 0x6, 0x5) => {
+                //TODO: toggle to increment i, for quirk behavior
+                for i in 0..=x {
+                    self.registers[i as usize] = self.memory[(self.index + i) as usize];
+                }
+            }
 
             (_, _, _, _) => {
-                // panic!("Unimplemented opcode: {:x}", op)
+                panic!("Unimplemented opcode: {:x}", op)
             }
         }
     }
