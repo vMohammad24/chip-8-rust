@@ -2,15 +2,20 @@
 // and https://tobiasvl.github.io/blog/write-a-chip-8-emulator/#specifications
 
 use std::sync::{Arc, Mutex};
-use std::thread;
+use std::{env, thread};
 use std::time::Duration;
 use minifb::{Key};
 use chip_8::cpu::Chip8;
 use chip_8::keys::get_keypad;
 
 fn main() {
+    let mut args = env::args();
+    args.next(); // program name
+
     let mut c = Chip8::default();
-    c.load_rom("roms/tetris.ch8");
+
+    let rom = args.next().expect("A provided rom");
+    c.load_rom(&rom);
 
     let c = Arc::new(Mutex::new(c));
     let mut window = chip_8::display::init_window();

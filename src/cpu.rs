@@ -16,6 +16,7 @@ pub struct Chip8 {
 
     registers: [u8; 16],
     pub keypad: [bool; 16],
+    last_key_pressed: Option<u8>
 }
 
 impl Default for Chip8 {
@@ -36,12 +37,13 @@ impl Default for Chip8 {
             sound_timer: 0,
             registers: [0; 16],
             keypad: [false; 16],
+            last_key_pressed: None
         }
     }
 }
 impl Chip8 {
     pub fn load_rom(&mut self, filename: &str) {
-        let file = fs::read(filename).expect("File to load should exist");
+        let file = fs::read(filename).expect("Rom should exist");
 
         for (i, byte) in file.iter().enumerate() {
             self.memory[(START_ADDRESS as usize) + i] = *byte;
@@ -158,7 +160,7 @@ impl Chip8 {
                 }
                 // shift
                 6 | 0xE => {
-                    // self.registers[x as usize] = self.registers[y as usize]; // TODO: configurable if this happens
+                    self.registers[x as usize] = self.registers[y as usize]; // TODO: configurable if this happens
 
                     let sb;
                     if inst == 6 {
@@ -191,10 +193,12 @@ impl Chip8 {
                 self.registers[0xF] = 0x0;
                 let x = self.registers[x as usize] % WIDTH as u8;
                 let y = self.registers[y as usize] % HEIGHT as u8;
+
                 for row in 0..n {
                     if y as u16 + row >= HEIGHT as u16 {
                         break;
                     }
+
                     let sprite_data = self.memory[(self.index + row) as usize];
 
                     for i in 0..8 {
@@ -245,9 +249,15 @@ impl Chip8 {
                 self.index += self.registers[x as usize] as u16;
             }
             (0xF, x, 0x0, 0xA) => {
-                if let Some(i) = self.keypad.iter().position(|&pressed| pressed) {
-                    self.registers[x as usize] = i as u8;
+                if let Some(key) = self.last_key_pressed && !self.keypad[key as usize]{
+                    self.last_key_pressed = None;
+                    self.registers[x as usize] = key;
+
                 } else {
+                    if let Some(i) = self.keypad.iter().position(|&pressed| pressed) {
+                        self.last_key_pressed = Some(i as u8);
+                    }
+
                     self.pc -= 2;
                 }
             }
