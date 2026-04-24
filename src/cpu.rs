@@ -160,13 +160,15 @@ impl Chip8 {
                 6 | 0xE => {
                     // self.registers[x as usize] = self.registers[y as usize]; // TODO: configurable if this happens
 
+                    let sb;
                     if inst == 6 {
-                        self.registers[0xF] = self.registers[x as usize] & 0x01;
+                        sb = self.registers[x as usize] & 0x1;
                         self.registers[x as usize] >>= 1;
                     } else {
-                        self.registers[0xF] = (self.registers[x as usize] >> 7) & 0x01;
+                       sb = (self.registers[x as usize] >> 7) & 0x1;
                         self.registers[x as usize] <<= 1;
                     }
+                    self.registers[0xF] = sb;
                 }
                 _ => {}
             },
@@ -191,13 +193,13 @@ impl Chip8 {
                 let y = self.registers[y as usize] % HEIGHT as u8;
                 for row in 0..n {
                     if y as u16 + row >= HEIGHT as u16 {
-                        break
+                        break;
                     }
                     let sprite_data = self.memory[(self.index + row) as usize];
 
                     for i in 0..8 {
                         if x + i >= WIDTH as u8 {
-                            break
+                            break;
                         }
 
                         let sprite_bit = sprite_data & (0x80 >> i);
@@ -232,14 +234,11 @@ impl Chip8 {
             (0xF, x, 0x0, 0x7) => {
                 self.registers[x as usize] = self.delay_timer;
             }
-            (0xF, x, 0x1, 0x5 | 0x8) => {
-                let value = self.registers[x as usize];
-
-                if (op & 0xF) == 0x5 {
-                    self.delay_timer = value;
-                } else {
-                    self.sound_timer = value;
-                }
+            (0xF, x, 0x1, 0x5) => {
+                self.delay_timer = self.registers[x as usize];
+            }
+            (0xF, x, 0x1, 0x8) => {
+                self.sound_timer = self.registers[x as usize];
             }
 
             (0xF, x, 0x1, 0xE) => {
@@ -255,7 +254,7 @@ impl Chip8 {
             (0xF, x, 0x2, 0x9) => {
                 let char = self.registers[x as usize] as u16;
                 self.index = FONT_START_ADDR + (char * 5)
-            },
+            }
 
             (0xF, x, 0x3, 0x3) => {
                 let value = self.registers[x as usize];
