@@ -3,7 +3,7 @@ use crate::fonts::{FONT_SET, FONT_START_ADDR};
 use std::fs;
 const START_ADDRESS: u16 = 0x200;
 
-#[derive(Debug)]
+
 pub struct Chip8 {
     memory: [u8; 4096],
     pub display: [u32; WIDTH * HEIGHT],
@@ -16,7 +16,8 @@ pub struct Chip8 {
 
     registers: [u8; 16],
     pub keypad: [bool; 16],
-    last_key_pressed: Option<u8>
+    last_key_pressed: Option<u8>,
+    quirks: Quirks
 }
 
 impl Default for Chip8 {
@@ -37,7 +38,8 @@ impl Default for Chip8 {
             sound_timer: 0,
             registers: [0; 16],
             keypad: [false; 16],
-            last_key_pressed: None
+            last_key_pressed: None,
+            quirks: Quirks::default()
         }
     }
 }
@@ -160,7 +162,9 @@ impl Chip8 {
                 }
                 // shift
                 6 | 0xE => {
-                    self.registers[x as usize] = self.registers[y as usize]; // TODO: configurable if this happens
+                    if self.quirks.shift_vxvy {
+                        self.registers[x as usize] = self.registers[y as usize];
+                    }
 
                     let sb;
                     if inst == 6 {
@@ -255,7 +259,14 @@ impl Chip8 {
 
                 } else {
                     if let Some(i) = self.keypad.iter().position(|&pressed| pressed) {
-                        self.last_key_pressed = Some(i as u8);
+                        if self.quirks.key_wait_release {
+                            self.last_key_pressed = Some(i as u8);
+                        } else {
+
+                            self.registers[x as usize] = i as u8;
+                            self.pc += 2; // cpu won't tick again so its fine
+
+                        }
                     }
 
                     self.pc -= 2;
@@ -276,22 +287,44 @@ impl Chip8 {
             }
 
             (0xF, x, 0x5, 0x5) => {
-                //TODO: toggle to increment i, for quirk behavior
                 for i in 0..=x {
                     self.memory[(self.index + i) as usize] = self.registers[i as usize]
+                }
+
+                if self.quirks.increment_i_memory {
+                    self.index += x;
                 }
             }
 
             (0xF, x, 0x6, 0x5) => {
-                //TODO: toggle to increment i, for quirk behavior
                 for i in 0..=x {
                     self.registers[i as usize] = self.memory[(self.index + i) as usize];
+                }
+
+                if self.quirks.increment_i_memory {
+                    self.index += x;
                 }
             }
 
             (_, _, _, _) => {
                 panic!("Unimplemented opcode: {:x}", op)
             }
+        }
+    }
+}
+
+struct Quirks {
+    shift_vxvy: bool,
+    key_wait_release: bool,
+    increment_i_memory: bool,
+}
+
+impl Default for Quirks {
+    fn default() -> Self {
+        Self {
+            shift_vxvy: true,
+            key_wait_release: false,
+            increment_i_memory: false,
         }
     }
 }
