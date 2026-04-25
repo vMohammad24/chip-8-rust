@@ -14,7 +14,7 @@ fn main() {
 
     let mut c = Chip8::default();
 
-    let rom = args.next().unwrap_or(String::from("roms/PONG2"));
+    let rom = args.next().unwrap_or(String::from("roms/output.ch8"));
     c.load_rom(&rom);
 
     let c = Arc::new(Mutex::new(c));

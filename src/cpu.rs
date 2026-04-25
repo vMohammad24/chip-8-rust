@@ -124,8 +124,7 @@ impl Chip8 {
 
                 for row in 0..HEIGHT {
                     for pixel in movement..WIDTH {
-                        let idx = (row * HEIGHT) + pixel;
-                        new_display[idx] = self.display[(row * HEIGHT) + pixel - movement]
+                        new_display[row + pixel] = self.display[row + (pixel - movement)]
                     }
                 }
 
@@ -137,8 +136,8 @@ impl Chip8 {
 
                 for row in 0..HEIGHT {
                     for pixel in 0..(WIDTH - movement) {
-                        let idx = (row * HEIGHT) + pixel;
-                        new_display[idx] = self.display[(row * HEIGHT) + pixel - movement]
+                        let idx = row + pixel;
+                        new_display[idx] = self.display[row + (pixel + movement)]
                     }
                 }
 
@@ -255,47 +254,59 @@ impl Chip8 {
             }
 
             (0xD, x, y, n) => {
-                self.registers[0xF] = 0x0;
+                self.registers[0xF] = 0;
                 let sf = self.screen_mode.scale_factor();
 
-                let start_x = self.registers[x] % (WIDTH / sf) as u8;
-                let start_y = self.registers[y] % (HEIGHT / sf) as u8;
+                let start_x = self.registers[x] as usize % (WIDTH / sf);
+                let start_y = self.registers[y] as usize % (HEIGHT / sf);
 
-                if n == 0 {
-                    //TODO: draw 16x16 sprites
-                }
+                let is_16x16 = n == 0;
+                let rows = if is_16x16 { 16usize } else { n };
+                let cols = if is_16x16 { 16usize } else { 8usize };
+                let bytes_per_row = if is_16x16 { 2usize } else { 1usize };
 
-                for row in 0..n {
-                    if start_y as usize + row >= (HEIGHT / sf) {
+                for row in 0..rows {
+                    if start_y + row >= (HEIGHT / sf) {
                         break;
                     }
 
-                    let sprite_data = self.memory[self.index as usize + row];
-                    for bit in 0..8 {
-                        if start_x + bit >= (WIDTH / sf) as u8 {
+                    let mem_idx = self.index as usize + row * bytes_per_row;
+                    let sprite_data: u16 = if is_16x16 {
+                        ((self.memory[mem_idx] as u16) << 8) | self.memory[mem_idx + 1] as u16
+                    } else {
+                        self.memory[mem_idx] as u16
+                    };
+
+                    for bit in 0..cols {
+                        if start_x + bit >= (WIDTH / sf) {
                             break;
                         }
 
-                        let sprite_bit = sprite_data & (0x80 >> bit);
+                        let sprite_on = if is_16x16 {
+                            (sprite_data & (0x8000 >> bit)) != 0
+                        } else {
+                            (sprite_data & (0x80 >> bit)) != 0
+                        };
 
-                        let x = (start_x as usize + bit as usize) * sf;
-                        let y = (start_y as usize + row) * sf;
+                        if !sprite_on {
+                            continue;
+                        }
 
-                        let idx = (y * WIDTH) + x;
-                        let display_bit = self.display[idx];
+                        let px = (start_x + bit) * sf;
+                        let py = (start_y + row) * sf;
+                        let idx = py * WIDTH + px;
 
-                        if display_bit == 0xFFFFFF && sprite_bit != 0 {
-                            for o_x in 0..sf {
-                                for o_y in 0..sf {
-                                    self.display[((y + o_y) * WIDTH) + (x + o_x)] = 0x000000;
-                                }
-                            }
-                            self.registers[0xF] = 0x1;
-                        } else if sprite_bit != 0x0 && display_bit == 0x0 {
-                            for o_x in 0..sf {
-                                for o_y in 0..sf {
-                                    self.display[((y + o_y) * WIDTH) + (x + o_x)] = 0xFFFFFF;
-                                }
+                        let currently_on = self.display[idx] == 0xFFFFFF;
+                        let new_color = if currently_on {
+                            self.registers[0xF] = 1;
+                            0x000000
+                        } else {
+                            0xFFFFFF
+                        };
+
+                        for oy in 0..sf {
+                            for ox in 0..sf {
+                                self.display[(py + oy) * WIDTH + (px + ox)] = new_color;
                             }
                         }
                     }
@@ -352,6 +363,10 @@ impl Chip8 {
                 let char = self.registers[x] as u16;
                 self.index = FONT_START_ADDR + (char * 5)
             }
+            (0xF, x, 0x3, 0x0) => {
+                let char = self.registers[x] as u16;
+                self.index = FONT_START_ADDR + 80 + (char * 10)
+            }
 
             (0xF, x, 0x3, 0x3) => {
                 let value = self.registers[x];
@@ -382,6 +397,13 @@ impl Chip8 {
                 }
             }
 
+            (0xF, x, 0x7, 0x5) => {
+                //TODO: Save self.registers to storage
+            }
+
+            (0xF, x, 0x8, 0x5) => {
+                //TODO: load self.registers from storage
+            }
             (_, _, _, _) => {
                 panic!("Unimplemented opcode: {:x}", op)
             }
