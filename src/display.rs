@@ -1,7 +1,7 @@
 use minifb::{Scale, Window, WindowOptions};
 
-pub const WIDTH: usize = 64;
-pub const HEIGHT: usize = 32;
+pub const WIDTH: usize = 128;
+pub const HEIGHT: usize = 64;
 
 pub fn init_window() -> Window {
     let mut window = Window::new(
@@ -9,7 +9,7 @@ pub fn init_window() -> Window {
         WIDTH,
         HEIGHT,
         WindowOptions {
-            scale: Scale::X16,
+            scale: Scale::X8,
             ..WindowOptions::default()
         },
     )
@@ -17,7 +17,7 @@ pub fn init_window() -> Window {
         panic!("{}", e);
     });
 
-    window.set_target_fps(0);
+    window.set_target_fps(60);
 
     window
 }

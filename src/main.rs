@@ -14,7 +14,7 @@ fn main() {
 
     let mut c = Chip8::default();
 
-    let rom = args.next().unwrap_or(String::from("roms/6-keypad.ch8"));
+    let rom = args.next().unwrap_or(String::from("roms/PONG2"));
     c.load_rom(&rom);
 
     let c = Arc::new(Mutex::new(c));
@@ -36,6 +36,7 @@ fn main() {
 
     {
         const INSTRUCTIONS_PER_SECOND: u16 = 700;
+        const PERFECT_SLEEP: Duration = Duration::from_micros(1_000_000 / INSTRUCTIONS_PER_SECOND as u64);
         let timer_state = Arc::clone(&c);
         thread::spawn(move || {
             loop {
@@ -46,9 +47,9 @@ fn main() {
                 }
 
                 let time_taken = Instant::now() - start;
-                thread::sleep(
-                      Duration::from_micros(1_000_000 / INSTRUCTIONS_PER_SECOND as u64) - time_taken,
-                );
+                if time_taken < PERFECT_SLEEP {
+                    thread::sleep(PERFECT_SLEEP - time_taken, );
+                }
             }
         });
     }
