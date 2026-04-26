@@ -4,5 +4,6 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-minifb = "0.28"
+minifb = { version = "0.28" }
 rand = "0.10.1"
+rfd = "0.17.2"

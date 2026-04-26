@@ -1,6 +1,8 @@
 use crate::display::{HEIGHT, WIDTH};
 use crate::fonts::{FONT_SET, FONT_START_ADDR};
 use std::fs;
+use std::path::PathBuf;
+
 const START_ADDRESS: u16 = 0x200;
 
 #[derive(PartialEq)]
@@ -61,8 +63,8 @@ impl Default for Chip8 {
     }
 }
 impl Chip8 {
-    pub fn load_rom(&mut self, filename: &str) {
-        let file = fs::read(filename).expect("Rom should exist");
+    pub fn load_rom(&mut self, path: PathBuf) {
+        let file = fs::read(path).expect("Rom should exist");
 
         for (i, byte) in file.iter().enumerate() {
             self.memory[(START_ADDRESS as usize) + i] = *byte;

@@ -4,6 +4,8 @@
 use chip_8::cpu::Chip8;
 use chip_8::keys::get_keypad;
 use minifb::Key;
+use rfd::FileDialog;
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use std::{env, thread};
@@ -14,8 +16,16 @@ fn main() {
 
     let mut c = Chip8::default();
 
-    let rom = args.next().unwrap_or(String::from("roms/output.ch8"));
-    c.load_rom(&rom);
+    let rom = match args.next() {
+        Some(file) => PathBuf::from(file),
+        None => FileDialog::new()
+            .set_title("Select Chip-8 Rom File")
+            .set_directory(env::current_dir().unwrap_or_default())
+            .pick_file()
+            .expect("Please Select a file!"),
+    };
+
+    c.load_rom(rom);
 
     let c = Arc::new(Mutex::new(c));
     let mut window = chip_8::display::init_window();
@@ -36,7 +46,8 @@ fn main() {
 
     {
         const INSTRUCTIONS_PER_SECOND: u16 = 700;
-        const PERFECT_SLEEP: Duration = Duration::from_micros(1_000_000 / INSTRUCTIONS_PER_SECOND as u64);
+        const PERFECT_SLEEP: Duration =
+            Duration::from_micros(1_000_000 / INSTRUCTIONS_PER_SECOND as u64);
         let timer_state = Arc::clone(&c);
         thread::spawn(move || {
             loop {
@@ -48,7 +59,7 @@ fn main() {
 
                 let time_taken = Instant::now() - start;
                 if time_taken < PERFECT_SLEEP {
-                    thread::sleep(PERFECT_SLEEP - time_taken, );
+                    thread::sleep(PERFECT_SLEEP - time_taken);
                 }
             }
         });
