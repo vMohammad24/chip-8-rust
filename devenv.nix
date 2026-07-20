@@ -7,5 +7,6 @@
     libxkbcommon
     libXcursor
     libXi
+    alsa-lib
   ];
 }

@@ -5,11 +5,11 @@ use chip_8::cpu::Chip8;
 use chip_8::keys::get_keypad;
 use minifb::Key;
 use rfd::FileDialog;
+use rodio::{DeviceSinkBuilder, Player};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use std::{env, thread};
-
 fn main() {
     let mut args = env::args();
     args.next(); // program name
@@ -29,6 +29,15 @@ fn main() {
 
     let c = Arc::new(Mutex::new(c));
     let mut window = chip_8::display::init_window();
+
+    // audio
+    let mut sink =
+        DeviceSinkBuilder::open_default_sink().expect("Failed to open default audio stream");
+    let player = Player::connect_new(&sink.mixer());
+    let beep = rodio::source::SineWave::new(440.0);
+    player.append(beep);
+    player.pause();
+    sink.log_on_drop(false);
 
     {
         const TIMER_HZ: u8 = 60;
@@ -55,6 +64,16 @@ fn main() {
                 {
                     let mut chip8 = timer_state.lock().expect("Mutex poisoned in timer thread");
                     chip8.tick();
+
+                    if chip8.sound_timer > 0 {
+                        if player.is_paused() {
+                            player.play();
+                        }
+                    } else {
+                        if !player.is_paused() {
+                            player.pause();
+                        }
+                    }
                 }
 
                 let time_taken = Instant::now() - start;

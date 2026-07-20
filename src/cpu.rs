@@ -28,7 +28,7 @@ pub struct Chip8 {
     stack: Vec<u16>,
 
     pub delay_timer: u8,
-    sound_timer: u8,
+    pub sound_timer: u8,
 
     registers: [u8; 16],
     pub keypad: [bool; 16],
@@ -76,8 +76,6 @@ impl Chip8 {
     pub fn decrease_timers(&mut self) {
         if self.sound_timer > 0 {
             self.sound_timer -= 1;
-            //TODO: beep?
-            println!("!!BEEP!!")
         }
 
         if self.delay_timer > 0 {

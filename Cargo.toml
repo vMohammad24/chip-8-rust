@@ -7,6 +7,7 @@ edition = "2024"
 minifb = { version = "0.28" }
 rand = "0.10.1"
 rfd = "0.17.2"
+rodio = {version = "0.22.2", default-features = false, features = ["playback"]}
 
 [profile.release]
 opt-level = 3
