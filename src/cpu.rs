@@ -36,6 +36,7 @@ pub struct Chip8 {
 
     quirks: Quirks,
     screen_mode: ScreenMode,
+    rpl_flags: [u8; 8],
 }
 
 impl Default for Chip8 {
@@ -59,6 +60,7 @@ impl Default for Chip8 {
             last_key_pressed: None,
             quirks: Quirks::default(),
             screen_mode: ScreenMode::LoRes,
+            rpl_flags: [0; 8],
         }
     }
 }
@@ -400,11 +402,17 @@ impl Chip8 {
             }
 
             (0xF, x, 0x7, 0x5) => {
-                //TODO: Save self.registers to storage
+                let limit = x.min(7);
+                for i in 0..=limit {
+                    self.rpl_flags[i] = self.registers[i];
+                }
             }
 
             (0xF, x, 0x8, 0x5) => {
-                //TODO: load self.registers from storage
+                let limit = x.min(7);
+                for i in 0..=limit {
+                    self.registers[i] = self.rpl_flags[i];
+                }
             }
             (_, _, _, _) => {
                 panic!("Unimplemented opcode: {:x}", op)
