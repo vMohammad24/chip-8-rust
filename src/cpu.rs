@@ -37,6 +37,7 @@ pub struct Chip8 {
     quirks: Quirks,
     screen_mode: ScreenMode,
     rpl_flags: [u8; 8],
+    pub dirty: bool,
 }
 
 impl Default for Chip8 {
@@ -61,6 +62,7 @@ impl Default for Chip8 {
             quirks: Quirks::default(),
             screen_mode: ScreenMode::LoRes,
             rpl_flags: [0; 8],
+            dirty: false,
         }
     }
 }
@@ -95,7 +97,10 @@ impl Chip8 {
         let digit4 = (op & 0x000F) as usize;
 
         match (digit1, digit2, digit3, digit4) {
-            (0, 0, 0xE, 0) => self.display = [0x000000; HEIGHT * WIDTH],
+            (0, 0, 0xE, 0) => {
+                self.display = [0x000000; HEIGHT * WIDTH];
+                self.dirty = true;
+            }
 
             // return from routine
             (0, 0, 0xE, 0xE) => {
@@ -118,7 +123,8 @@ impl Chip8 {
                     }
                 }
 
-                self.display = new_display
+                self.display = new_display;
+                self.dirty = true;
             }
             (0, 0, 0xF, 0xB) => {
                 let mut new_display = [0x0; WIDTH * HEIGHT];
@@ -130,7 +136,8 @@ impl Chip8 {
                     }
                 }
 
-                self.display = new_display
+                self.display = new_display;
+                self.dirty = true;
             }
             (0, 0, 0xF, 0xC) => {
                 let mut new_display = [0x0; WIDTH * HEIGHT];
@@ -143,7 +150,8 @@ impl Chip8 {
                     }
                 }
 
-                self.display = new_display
+                self.display = new_display;
+                self.dirty = true;
             }
             // Jump
             (1, _, _, _) => {
@@ -313,6 +321,7 @@ impl Chip8 {
                         }
                     }
                 }
+                self.dirty = true;
             }
 
             // Key handling
