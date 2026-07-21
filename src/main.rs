@@ -1,33 +1,33 @@
-// based on: https://austinmorlan.com/posts/chip8_emulator/
-// and https://tobiasvl.github.io/blog/write-a-chip-8-emulator/#specifications
-
 use chip_8::cpu::Chip8;
 use chip_8::keys::get_keypad;
 use minifb::Key;
 use rfd::FileDialog;
 use rodio::{DeviceSinkBuilder, Player};
+use std::env;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use std::{env, thread};
+
 fn main() {
     let mut args = env::args();
-    args.next(); // program name
+    let mut chip = Chip8::default();
 
-    let mut c = Chip8::default();
-
-    let rom = match args.next() {
+    let rom = match args.nth(1) {
         Some(file) => PathBuf::from(file),
-        None => FileDialog::new()
-            .set_title("Select Chip-8 Rom File")
-            .set_directory(env::current_dir().unwrap_or_default())
-            .pick_file()
-            .expect("Please Select a file!"),
+        None => {
+            let Some(path) = FileDialog::new()
+                .set_title("Select Chip-8 Rom File")
+                .set_directory(env::current_dir().unwrap_or_default())
+                .pick_file()
+            else {
+                println!("Please Select a file.");
+                return;
+            };
+            path
+        }
     };
 
-    c.load_rom(rom);
+    chip.load_rom(rom);
 
-    let c = Arc::new(Mutex::new(c));
     let mut window = chip_8::display::init_window();
 
     // audio
@@ -39,61 +39,66 @@ fn main() {
     player.pause();
     sink.log_on_drop(false);
 
-    {
-        const TIMER_HZ: u8 = 60;
-        let timer_state = Arc::clone(&c);
-        thread::spawn(move || {
-            loop {
-                {
-                    let mut chip8 = timer_state.lock().expect("Mutex poisoned in timer thread");
-                    chip8.decrease_timers();
-                }
-                thread::sleep(Duration::from_micros(1_000_000 / TIMER_HZ as u64));
-            }
-        });
-    }
+    const CPU_HZ: f64 = 700.0;
+    const TIMER_HZ: f64 = 60.0;
+    const MAX_DELTA: Duration = Duration::from_millis(100);
+    const CPU_TICK_RATE: Duration = Duration::from_micros((1_000_000.0 / CPU_HZ) as u64);
+    const TIMER_TICK_RATE: Duration = Duration::from_micros((1_000_000.0 / TIMER_HZ) as u64);
 
-    {
-        const INSTRUCTIONS_PER_SECOND: u16 = 700;
-        const PERFECT_SLEEP: Duration =
-            Duration::from_micros(1_000_000 / INSTRUCTIONS_PER_SECOND as u64);
-        let timer_state = Arc::clone(&c);
-        thread::spawn(move || {
-            loop {
-                let start = Instant::now();
-                {
-                    let mut chip8 = timer_state.lock().expect("Mutex poisoned in timer thread");
-                    chip8.tick();
-
-                    if chip8.sound_timer > 0 {
-                        if player.is_paused() {
-                            player.play();
-                        }
-                    } else {
-                        if !player.is_paused() {
-                            player.pause();
-                        }
-                    }
-                }
-
-                let time_taken = Instant::now() - start;
-                if time_taken < PERFECT_SLEEP {
-                    thread::sleep(PERFECT_SLEEP - time_taken);
-                }
-            }
-        });
-    }
-
+    let mut last_time = Instant::now();
+    let mut cpu_accumulator = Duration::ZERO;
+    let mut timer_accumulator = Duration::ZERO;
+    let mut prev_display = [0u32; chip_8::display::WIDTH * chip_8::display::HEIGHT];
     while window.is_open() && !window.is_key_down(Key::Escape) {
-        let display = {
-            let mut c = c.lock().expect("Threads should not lock up");
-            c.keypad = get_keypad(&window);
+        let now = Instant::now();
+        let mut delta = now.duration_since(last_time);
+        // clamp delta so if the thread is ever frozen the cpu doesnt explode
+        if delta > MAX_DELTA {
+            delta = MAX_DELTA;
+        }
 
-            c.display
-        };
+        last_time = now;
 
-        window
-            .update_with_buffer(&display, chip_8::display::WIDTH, chip_8::display::HEIGHT)
-            .unwrap();
+        cpu_accumulator += delta;
+        timer_accumulator += delta;
+        chip.keypad = get_keypad(&window);
+
+        while timer_accumulator >= TIMER_TICK_RATE {
+            chip.decrease_timers();
+            timer_accumulator -= TIMER_TICK_RATE;
+        }
+
+        while cpu_accumulator >= CPU_TICK_RATE {
+            chip.tick();
+            cpu_accumulator -= CPU_TICK_RATE;
+        }
+
+        if chip.sound_timer > 0 && player.is_paused() {
+            player.play();
+        } else if chip.sound_timer == 0 && !player.is_paused() {
+            player.pause();
+        }
+
+        if chip.dirty {
+            chip.dirty = false;
+            let mut render_buffer = [0u32; chip_8::display::WIDTH * chip_8::display::HEIGHT];
+
+            for i in 0..render_buffer.len() {
+                // combine the current frame with the previous' ghost (basic motion blur to replicate old crt)
+                render_buffer[i] = chip.display[i] | prev_display[i];
+            }
+
+            prev_display = chip.display;
+
+            window
+                .update_with_buffer(
+                    &render_buffer,
+                    chip_8::display::WIDTH,
+                    chip_8::display::HEIGHT,
+                )
+                .unwrap();
+        } else {
+            window.update();
+        }
     }
 }
