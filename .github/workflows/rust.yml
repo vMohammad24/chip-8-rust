@@ -21,7 +21,7 @@ jobs:
     - name: Install System Dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y --no-install-recommends build-essential pkg-config libwayland-dev libxkbcommon-dev libxcursor-dev
+        sudo apt-get install -y --no-install-recommends build-essential pkg-config libwayland-dev libxkbcommon-dev libxcursor-dev libasound2-dev
 
     - name: Install Rust toolchain
       uses: dtolnay/rust-toolchain@stable
