@@ -20,8 +20,8 @@ jobs:
 
     - name: Install System Dependencies
       run: |
-        apt-get update
-        apt-get install -y --no-install-recommends build-essential pkg-config libwayland-dev libxkbcommon-dev libxcursor-dev 
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends build-essential pkg-config libwayland-dev libxkbcommon-dev libxcursor-dev
 
     - name: Install Rust toolchain
       uses: dtolnay/rust-toolchain@stable
@@ -33,6 +33,12 @@ jobs:
 
     - name: Run tests
       run: cargo test --release
-    - uses: actions/checkout@v4
     - name: Build
       run: cargo build --release
+
+    - name: Upload build artifact
+      uses: actions/upload-artifact@v7
+      with:
+        name: chip-8-linux-build
+        path: target/release/chip-8
+        if-no-files-found: error
